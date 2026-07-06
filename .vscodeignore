@@ -1,0 +1,13 @@
+.vscode/**
+.git/**
+.gitignore
+.gitattributes
+node_modules/**
+src/**
+tsconfig.json
+esbuild.js
+package.bat
+package-lock.json
+*.vsix
+**/*.map
+dist/*.log

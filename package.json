@@ -1,0 +1,90 @@
+{
+  "name": "tool-support-claude",
+  "displayName": "Tool Support Claude",
+  "description": "A lightweight local proxy extension to bridge Claude Code CLI with internal AI APIs",
+  "version": "0.1.0",
+  "publisher": "thanhphong",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "tool-support-claude-sidebar",
+          "title": "Tool Support Claude",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "tool-support-claude-sidebar": [
+        {
+          "type": "webview",
+          "id": "tool-support-claude.settingsView",
+          "name": "Tool Support Claude Control"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "tool-support-claude.connectClaude",
+        "title": "Tool Support Claude: Connect Claude Code CLI",
+        "category": "Tool Support Claude"
+      },
+      {
+        "command": "tool-support-claude.toggleServer",
+        "title": "Tool Support Claude: Toggle Local Proxy Server",
+        "category": "Tool Support Claude"
+      }
+    ],
+    "configuration": {
+      "title": "Tool Support Claude Config",
+      "properties": {
+        "toolSupportClaude.port": {
+          "type": "integer",
+          "default": 20128,
+          "description": "Port on which the local proxy server runs."
+        },
+        "toolSupportClaude.apiEndpoint": {
+          "type": "string",
+          "default": "https://ask.ai.gameloft.org/api",
+          "description": "The AI API Endpoint to forward messages to. Usually an OpenAI-compatible endpoint."
+        },
+        "toolSupportClaude.apiKey": {
+          "type": "string",
+          "default": "api_key_here",
+          "description": "API Key for authorizing requests sent to the AI endpoint."
+        },
+        "toolSupportClaude.modelMapping": {
+          "type": "object",
+          "default": {
+            "claude-3-5-sonnet-20241022": "model-sonnet-3-5",
+            "claude-3-5-sonnet-latest": "model-sonnet-3-5",
+            "claude-3-5-haiku-20241022": "model-haiku-3-5"
+          },
+          "description": "JSON mapping from Claude model keys requested by Claude Code CLI to supported models."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "node esbuild.js --minify",
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^18.17.0",
+    "@types/vscode": "^1.80.0",
+    "esbuild": "^0.18.11",
+    "typescript": "^5.1.6"
+  }
+}
