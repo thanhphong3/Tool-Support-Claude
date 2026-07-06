@@ -3,12 +3,23 @@
   "displayName": "Tool Support Claude",
   "description": "A lightweight local proxy extension to bridge Claude Code CLI with internal AI APIs",
   "version": "0.1.0",
-  "publisher": "thanhphong",
+  "publisher": "PhamThanhPhong",
+  "license": "MIT",
+  "icon": "resources/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thanhphong3/Tool-Support-Claude.git"
+  },
+  "bugs": {
+    "url": "https://github.com/thanhphong3/Tool-Support-Claude/issues"
+  },
+  "homepage": "https://github.com/thanhphong3/Tool-Support-Claude#readme",
   "engines": {
     "vscode": "^1.80.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Machine Learning"
   ],
   "activationEvents": [
     "onStartupFinished"
