@@ -101,6 +101,7 @@ async function startProxyServer(showNotification: boolean): Promise<boolean> {
     const apiEndpoint = config.get<string>('apiEndpoint') || '';
     const apiKey = config.get<string>('apiKey') || '';
     const modelMapping = config.get<Record<string, string>>('modelMapping') || {};
+    const timeout = config.get<number>('timeout') || 900;
 
     if (!apiEndpoint) {
         updateStatusBar(false);
@@ -117,7 +118,7 @@ async function startProxyServer(showNotification: boolean): Promise<boolean> {
     }
 
     try {
-        await proxyServer.start(port, apiEndpoint, apiKey, modelMapping);
+        await proxyServer.start(port, apiEndpoint, apiKey, modelMapping, timeout);
         updateStatusBar(true, port);
         webviewProvider?.sendStateToWebview();
         if (showNotification) {

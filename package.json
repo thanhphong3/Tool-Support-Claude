@@ -82,6 +82,11 @@
             "claude-3-5-haiku-20241022": "model-haiku-3-5"
           },
           "description": "JSON mapping from Claude model keys requested by Claude Code CLI to supported models."
+        },
+        "toolSupportClaude.timeout": {
+          "type": "integer",
+          "default": 900,
+          "description": "Timeout in seconds for upstream API requests before timing out. Default is 900 (15 minutes) to allow deep thinking/reasoning models to complete."
         }
       }
     }

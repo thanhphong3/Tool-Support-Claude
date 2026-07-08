@@ -8,6 +8,8 @@ import { resolveEndpoints } from './utils';
 class StreamParser {
     private inThinkMode = false;
     private buffer = '';
+    private readonly endTags = ['</think>', '</thinking>', '</thought>', '</reasoning>'];
+    private readonly startTags = ['<think>', '<thinking>', '<thought>', '<reasoning>'];
 
     public get isThinking(): boolean {
         return this.inThinkMode;
@@ -22,12 +24,10 @@ class StreamParser {
         
         while (fullText.length > 0) {
             if (this.inThinkMode) {
-                const endTags = ['</think>', '</thinking>', '</thought>', '</reasoning>'];
-                
                 let nextEndIdx = -1;
                 let matchedTag = '';
                 
-                for (const tag of endTags) {
+                for (const tag of this.endTags) {
                     const idx = fullText.indexOf(tag);
                     if (idx !== -1) {
                         if (nextEndIdx === -1 || idx < nextEndIdx) {
@@ -46,7 +46,7 @@ class StreamParser {
                 } else {
                     let partialMatchLength = 0;
                     let maxSuffixLen = 0;
-                    for (const tag of endTags) {
+                    for (const tag of this.endTags) {
                         maxSuffixLen = Math.max(maxSuffixLen, tag.length);
                     }
                     maxSuffixLen = Math.min(fullText.length, maxSuffixLen);
@@ -54,7 +54,7 @@ class StreamParser {
                     for (let i = maxSuffixLen; i > 0; i--) {
                         const suffix = fullText.substring(fullText.length - i);
                         let matched = false;
-                        for (const tag of endTags) {
+                        for (const tag of this.endTags) {
                             if (tag.startsWith(suffix)) {
                                 matched = true;
                                 break;
@@ -75,12 +75,10 @@ class StreamParser {
                     }
                 }
             } else {
-                const startTags = ['<think>', '<thinking>', '<thought>', '<reasoning>'];
-                
                 let nextStartIdx = -1;
                 let matchedTag = '';
                 
-                for (const tag of startTags) {
+                for (const tag of this.startTags) {
                     const idx = fullText.indexOf(tag);
                     if (idx !== -1) {
                         if (nextStartIdx === -1 || idx < nextStartIdx) {
@@ -99,7 +97,7 @@ class StreamParser {
                 } else {
                     let partialMatchLength = 0;
                     let maxSuffixLen = 0;
-                    for (const tag of startTags) {
+                    for (const tag of this.startTags) {
                         maxSuffixLen = Math.max(maxSuffixLen, tag.length);
                     }
                     maxSuffixLen = Math.min(fullText.length, maxSuffixLen);
@@ -107,7 +105,7 @@ class StreamParser {
                     for (let i = maxSuffixLen; i > 0; i--) {
                         const suffix = fullText.substring(fullText.length - i);
                         let matched = false;
-                        for (const tag of startTags) {
+                        for (const tag of this.startTags) {
                             if (tag.startsWith(suffix)) {
                                 matched = true;
                                 break;
@@ -198,6 +196,7 @@ export class ProxyServer {
     private modelMapping: Record<string, string> = {};
     private logStream: fs.WriteStream | null = null;
     private cachedEndpoints: { chatCompletionsUrl: string; modelsUrl: string } | null = null;
+    private requestTimeoutMs: number = 900000; // default 15 minutes
     // Track active streaming requests to prevent duplicate concurrent responses
     private activeRequests: Map<string, { timestamp: number; abortController: AbortController }> = new Map();
 
@@ -213,13 +212,19 @@ export class ProxyServer {
         port: number,
         apiEndpoint: string,
         apiKey: string,
-        modelMapping: Record<string, string>
+        modelMapping: Record<string, string>,
+        requestTimeoutSeconds?: number
     ): Promise<number> {
         this.activePort = port;
         this.apiEndpoint = apiEndpoint;
         this.apiKey = apiKey;
         this.modelMapping = modelMapping;
         this.cachedEndpoints = resolveEndpoints(apiEndpoint);
+        if (requestTimeoutSeconds !== undefined && requestTimeoutSeconds > 0) {
+            this.requestTimeoutMs = requestTimeoutSeconds * 1000;
+        } else {
+            this.requestTimeoutMs = 900000; // default 15 minutes
+        }
 
         return new Promise((resolve, reject) => {
             if (this.server) {
@@ -477,7 +482,7 @@ export class ProxyServer {
                     ? lastMsg.content
                     : JSON.stringify(lastMsg?.content || '');
                 const messageCount = anthropicReq.messages?.length || 0;
-                const dedupKey = `${anthropicReq.model}::${messageCount}::${lastContent}`;
+                const dedupKey = `${anthropicReq.model}::${messageCount}::${lastContent.substring(0, 500)}`;
 
                 const activeReq = this.activeRequests.get(dedupKey);
                 const now = Date.now();
@@ -631,10 +636,11 @@ export class ProxyServer {
                         socket.setNoDelay(true);
                     });
 
-                    // Set upstream request timeout (120 seconds) to prevent infinite hangs
-                    upstreamReq.setTimeout(120000, () => {
-                        this.logToFile(`[TIMEOUT] Upstream request timed out after 120s`);
-                        upstreamReq.destroy(new Error('Upstream request timed out after 120s (Gateway Timeout)'));
+                    // Set upstream request timeout to prevent infinite hangs
+                    upstreamReq.setTimeout(this.requestTimeoutMs, () => {
+                        const timeoutSec = Math.round(this.requestTimeoutMs / 1000);
+                        this.logToFile(`[TIMEOUT] Upstream request timed out after ${timeoutSec}s`);
+                        upstreamReq.destroy(new Error(`Upstream request timed out after ${timeoutSec}s (Gateway Timeout)`));
                     });
 
                     upstreamReq.write(requestBodyStr);
@@ -1011,10 +1017,11 @@ export class ProxyServer {
 
                 buffer += decoder.decode(value, { stream: true });
                 
+                let startIndex = 0;
                 let eolIndex;
-                while ((eolIndex = buffer.indexOf('\n')) !== -1) {
-                    let line = buffer.slice(0, eolIndex);
-                    buffer = buffer.slice(eolIndex + 1);
+                while ((eolIndex = buffer.indexOf('\n', startIndex)) !== -1) {
+                    let line = buffer.substring(startIndex, eolIndex);
+                    startIndex = eolIndex + 1;
                     if (line.endsWith('\r')) {
                         line = line.slice(0, -1);
                     }
@@ -1189,6 +1196,7 @@ export class ProxyServer {
                     }
                 }
                 
+                buffer = buffer.substring(startIndex);
                 // Flush the batched SSE events for this network chunk
                 flushSSEBuffer();
             }
